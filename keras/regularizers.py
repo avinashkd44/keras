@@ -94,6 +94,7 @@ class EigenvalueRegularizer(Regularizer):
     the original loss (evaluated on the
     validation data).
     '''
+    '''
     def __init__(self, k):
         self.k = k
         self.uses_learning_phase = True
@@ -129,7 +130,31 @@ class EigenvalueRegularizer(Regularizer):
         regularized_loss = loss + (main_eigenval ** 0.5) * self.k
 
         return K.in_train_phase(regularized_loss[0, 0], loss)
+'''
+    def __init__(self, k):
+        self.k = k
+        
+    def __call__(self, x):
+        if K.ndim(x) != 2:
+            raise ValueError('EigenvalueRegularizer '
+                             'is only available for tensors of rank 2.')
+        covariance = K.dot(K.transpose(x), x)
+        dim1, dim2 = K.eval(K.shape(covariance))
 
+        # Power method for approximating the dominant eigenvector:
+        power = 9  # Number of iterations of the power method.
+        o = K.ones([dim1, 1])  # Initial values for the dominant eigenvector.
+        main_eigenvect = K.dot(covariance, o)
+        for n in range(power - 1):
+            main_eigenvect = K.dot(covariance, main_eigenvect)
+        covariance_d = K.dot(covariance, main_eigenvect)
+
+        # The corresponding dominant eigenvalue:
+        main_eigenval = (K.dot(K.transpose(covariance_d), main_eigenvect) /
+                         K.dot(K.transpose(main_eigenvect), main_eigenvect))
+        # Multiply by the given regularization gain.
+        regularization = (main_eigenval ** 0.5) * self.k
+        return K.sum(regularization)
 
 class WeightRegularizer(Regularizer):
 
